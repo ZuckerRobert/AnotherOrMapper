@@ -223,7 +223,7 @@ namespace NewOrMapper_if19b098
         }
         public bool CreateTable(object obj)
         {
-            Connection.Open();
+            //Connection.Open();
             IDbCommand cmd = Connection.CreateCommand();
 
             try

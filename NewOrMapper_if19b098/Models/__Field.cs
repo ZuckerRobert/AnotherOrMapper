@@ -48,7 +48,7 @@ namespace NewOrMapper_if19b098.Models
         {
             get
             {
-                if(Member is PropertyInfo) { return ((PropertyInfo) Member).PropertyType; }
+                if (Member is PropertyInfo) { return ((PropertyInfo)Member).PropertyType; }
 
                 throw new NotSupportedException("Member type not supported.");
             }
@@ -122,15 +122,15 @@ namespace NewOrMapper_if19b098.Models
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // internal properties                                                                                              //
         //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        
+
         /// <summary>Gets the foreign key SQL.</summary>
         internal string _FkSql
         {
             get
             {
-                if(IsManyToMany)
+                if (IsManyToMany)
                 {
-                    return Type.GenericTypeArguments[0]._GetEntity().GetSQL() + 
+                    return Type.GenericTypeArguments[0]._GetEntity().GetSQL() +
                            " WHERE ID IN (SELECT " + RemoteColumnName + " FROM " + AssignmentTable + " WHERE " + ColumnName + " = :fk)";
                 }
 
@@ -149,21 +149,34 @@ namespace NewOrMapper_if19b098.Models
         /// <returns>Database type representation of the value.</returns>
         public object ToColumnType(object value)
         {
-            if(IsForeignKey)
+            if (IsForeignKey)
             {
-                if(value == null) { return null; }
+                if (value == null) { return null; }
 
                 Type t = (typeof(ILazy).IsAssignableFrom(Type) ? Type.GenericTypeArguments[0] : Type);
                 return t._GetEntity().PrimaryKey.ToColumnType(t._GetEntity().PrimaryKey.GetValue(value));
             }
-
-            if(Type == ColumnType) { return value; }
-
-            if(value is bool)
+            if (value is Enum)
             {
-                if(ColumnType == typeof(int)) { return (((bool) value) ? 1 : 0); }
-                if(ColumnType == typeof(short)) { return (short) (((bool) value) ? 1 : 0); }
-                if(ColumnType == typeof(long)) { return (long) (((bool) value) ? 1 : 0); }
+                int temp = (int)value;
+                if (ColumnType == typeof(Enum)) { return (int)value; }
+                else if (Type.IsEnum) { return (int)value; }
+                else if (ColumnType == typeof(int)) { return (int)value; }
+                else if (ColumnType == typeof(short)) { return (short)((int)value); }
+                else if (ColumnType == typeof(long)) { return (long)((int)value); }
+                return temp;
+            }
+
+            if (Type == ColumnType)
+            {
+                return value;
+            }
+
+            if (value is bool)
+            {
+                if (ColumnType == typeof(int)) { return (((bool)value) ? 1 : 0); }
+                else if (ColumnType == typeof(short)) { return (short)(((bool)value) ? 1 : 0); }
+                else if (ColumnType == typeof(long)) { return (long)(((bool)value) ? 1 : 0); }
             }
 
             return value;
@@ -175,27 +188,30 @@ namespace NewOrMapper_if19b098.Models
         /// <returns>Field type representation of the value.</returns>
         public object ToFieldType(object value, ICollection<object> localCache)
         {
-            if(IsForeignKey)
+            if (IsForeignKey)
             {
-                if(typeof(ILazy).IsAssignableFrom(Type))
+                if (typeof(ILazy).IsAssignableFrom(Type))
                 {
                     return Activator.CreateInstance(Type, value);
                 }
                 return Orm._CreateObject(Type, value, localCache);
             }
 
-            if(Type == typeof(bool))
+            if (Type == typeof(bool))
             {
-                if(value is int) { return ((int) value != 0); }
-                if(value is short) { return ((short) value != 0); }
-                if(value is long) { return ((long) value != 0); }
+                if (value is int) { return ((int)value != 0); }
+                else if (value is short) { return ((short)value != 0); }
+                else if (value is long) { return ((long)value != 0); }
             }
 
-            if(Type == typeof(short)) { return Convert.ToInt16(value); }
-            if(Type == typeof(int)) { return Convert.ToInt32(value); }
-            if(Type == typeof(long)) { return Convert.ToInt64(value); }
+            if (Type == typeof(short)) { return Convert.ToInt16(value); }
+            else if (Type == typeof(int)) { return Convert.ToInt32(value); }
+            else if (Type == typeof(long)) { return Convert.ToInt64(value); }
 
-            if(Type.IsEnum) { return Enum.ToObject(Type, value); }
+            if (Type.IsEnum) 
+            { 
+                return Enum.ToObject(Type, value); 
+            }
 
             return value;
         }
@@ -206,13 +222,13 @@ namespace NewOrMapper_if19b098.Models
         /// <returns>Field value.</returns>
         public object GetValue(object obj)
         {
-            if(Member is PropertyInfo) 
+            if (Member is PropertyInfo)
             {
-                object rval = ((PropertyInfo) Member).GetValue(obj);
+                object rval = ((PropertyInfo)Member).GetValue(obj);
 
-                if(rval is ILazy)
+                if (rval is ILazy)
                 {
-                    if(!(rval is IEnumerable)) { return rval.GetType().GetProperty("Value").GetValue(rval); }
+                    if (!(rval is IEnumerable)) { return rval.GetType().GetProperty("Value").GetValue(rval); }
                 }
 
                 return rval;
@@ -227,9 +243,9 @@ namespace NewOrMapper_if19b098.Models
         /// <param name="value">Value.</param>
         public void SetValue(object obj, object value)
         {
-            if(Member is PropertyInfo)
+            if (Member is PropertyInfo)
             {
-                ((PropertyInfo) Member).SetValue(obj, value);
+                ((PropertyInfo)Member).SetValue(obj, value);
                 return;
             }
 
@@ -255,14 +271,14 @@ namespace NewOrMapper_if19b098.Models
         /// <param name="obj">Object.</param>
         public void UpdateReferences(object obj)
         {
-            if(!IsExternal) return;
-            if(GetValue(obj) == null) return;
+            if (!IsExternal) return;
+            if (GetValue(obj) == null) return;
 
             Type innerType = Type.GetGenericArguments()[0];
             __Entity innerEntity = innerType._GetEntity();
             object pk = Entity.PrimaryKey.ToColumnType(Entity.PrimaryKey.GetValue(obj));
 
-            if(IsManyToMany)
+            if (IsManyToMany)
             {
                 IDbCommand cmd = Orm.Connection.CreateCommand();
                 cmd.CommandText = ("DELETE FROM " + AssignmentTable + " WHERE " + ColumnName + " = :pk");
@@ -274,7 +290,7 @@ namespace NewOrMapper_if19b098.Models
                 cmd.ExecuteNonQuery();
                 cmd.Dispose();
 
-                foreach(object i in (IEnumerable) GetValue(obj))
+                foreach (object i in (IEnumerable)GetValue(obj))
                 {
                     cmd = Orm.Connection.CreateCommand();
                     cmd.CommandText = ("INSERT INTO " + AssignmentTable + "(" + ColumnName + ", " + RemoteColumnName + ") VALUES (:pk, :fk)");
@@ -296,7 +312,7 @@ namespace NewOrMapper_if19b098.Models
             {
                 __Field remoteField = innerEntity.GetFieldForColumn(ColumnName);
 
-                if(remoteField.IsNullable)
+                if (remoteField.IsNullable)
                 {
                     try
                     {
@@ -310,10 +326,10 @@ namespace NewOrMapper_if19b098.Models
                         cmd.ExecuteNonQuery();
                         cmd.Dispose();
                     }
-                    catch(Exception) {}
+                    catch (Exception) { }
                 }
 
-                foreach(object i in (IEnumerable) GetValue(obj))
+                foreach (object i in (IEnumerable)GetValue(obj))
                 {
                     remoteField.SetValue(i, obj);
 

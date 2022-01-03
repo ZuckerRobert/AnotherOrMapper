@@ -53,6 +53,17 @@ namespace NewOrMapper_if19b098
             if(Cache != null) { if(!Cache.HasChanged(obj)) return; }
 
             __Entity ent = obj._GetEntity();
+            DBSettings dbSettings = new(Connection);
+
+            //Check if table exists            
+            if (!dbSettings.CheckIfTableExists(ent.TableName))
+            {
+                //table eventuell erstellen:
+                if (!dbSettings.CreateTable(obj))
+                    throw new Exception("Creation from Table failed");
+            }
+            Connection.Close();
+            Connection.Open();
 
             IDbCommand cmd = Connection.CreateCommand();
             cmd.CommandText = ("INSERT INTO " + ent.TableName + " (");
@@ -62,7 +73,9 @@ namespace NewOrMapper_if19b098
 
             IDataParameter p;
             bool first = true;
-            for(int i = 0; i < ent.Internals.Length; i++)
+
+            //alle felder durchgehen
+            for (int i = 0; i < ent.Internals.Length; i++)
             {
                 if(i > 0) { cmd.CommandText += ", "; insert += ", "; }
                 cmd.CommandText += ent.Internals[i].ColumnName;
@@ -90,9 +103,15 @@ namespace NewOrMapper_if19b098
             cmd.ExecuteNonQuery();
             cmd.Dispose();
 
-            foreach(__Field i in ent.Externals) { i.UpdateReferences(obj); }
+            foreach(__Field i in ent.Externals) 
+            {
+                i.UpdateReferences(obj); 
+            }
 
-            if(Cache != null) { Cache.Put(obj); }
+            if(Cache != null) 
+            { 
+                Cache.Put(obj); 
+            }
         }
 
 
