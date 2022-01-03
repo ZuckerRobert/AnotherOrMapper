@@ -3,7 +3,6 @@ using NewOrMapper_if19b098.Models;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Linq;
 
 namespace NewOrMapper_if19b098
 {
@@ -187,20 +186,23 @@ namespace NewOrMapper_if19b098
         /// <param name="re">Reader.</param>
         /// <param name="localCache">Local cache.</param>
         /// <returns>Object.</returns>
-        internal static object _CreateObject(Type t, IDataReader re, ICollection<object> localCache)
+        internal static object _CreateObject(Type t, Dictionary<string, object> columnValuePairs, ICollection<object> localCache)
         {
             __Entity ent = t._GetEntity();
-            object rval = _SearchCache(t, ent.PrimaryKey.ToFieldType(re.GetValue(re.GetOrdinal(ent.PrimaryKey.ColumnName)), localCache), localCache);
+            object rval = _SearchCache(t, ent.PrimaryKey.ToFieldType(columnValuePairs[ent.PrimaryKey.ColumnName], null), localCache);
 
             if(rval == null)
             {
-                if(localCache == null) { localCache = new List<object>(); }
+                if(localCache == null) 
+                { 
+                    localCache = new List<object>(); 
+                }
                 localCache.Add(rval = Activator.CreateInstance(t));
             }
 
             foreach(__Field i in ent.Internals)
             {
-                i.SetValue(rval, i.ToFieldType(re.GetValue(re.GetOrdinal(i.ColumnName)), localCache));
+                i.SetValue(rval, i.ToFieldType(columnValuePairs[i.ColumnName], localCache));
             }
 
             foreach(__Field i in ent.Externals)
@@ -221,36 +223,51 @@ namespace NewOrMapper_if19b098
 
         /// <summary>Creates an instance by its primary keys.</summary>
         /// <param name="t">Type.</param>
-        /// <param name="pk">Primary key.</param>
+        /// <param name="primaryKey">Primary key.</param>
         /// <param name="localCache">Local cache.</param>
         /// <returns>Object.</returns>
-        internal static object _CreateObject(Type t, object pk, ICollection<object> localCache)
+        internal static object _CreateObject(Type t, object primaryKey, ICollection<object> localCache)
         {
-            object rval = _SearchCache(t, pk, localCache);
+            object resultValue = _SearchCache(t, primaryKey, localCache);
 
-            IDbCommand cmd = Connection.CreateCommand();
-
-            cmd.CommandText = t._GetEntity().GetSQL() + " WHERE " + t._GetEntity().PrimaryKey.ColumnName + " = :pk";
-
-            IDataParameter p = cmd.CreateParameter();
-            p.ParameterName = (":pk");
-            p.Value = pk;
-            cmd.Parameters.Add(p);
-
-            IDataReader re = cmd.ExecuteReader();
-            if(re.Read())
+            if (resultValue == null)
             {
-                rval = _CreateObject(t, re, localCache);
+                IDbCommand command = Connection.CreateCommand();
+                __Entity modelEntity = t._GetEntity();
+                command.CommandText = modelEntity.GetSQL() + " WHERE " + modelEntity.PrimaryKey.ColumnName + " = :pk";
+
+                IDataParameter para = command.CreateParameter();
+                para.ParameterName = (":pk");
+                para.Value = primaryKey;
+                command.Parameters.Add(para);
+
+                IDataReader readerData = command.ExecuteReader();
+                Dictionary<string, object> columnValuePairs = DataReaderToDictionary(readerData, modelEntity);
+                readerData.Close();
+                resultValue = _CreateObject(t, columnValuePairs, localCache);
+                command.Dispose();
             }
-
-            re.Close();
-            cmd.Dispose();
-
-            if(Cache != null) { Cache.Put(rval); }
-
-            return rval;
+            if (resultValue == null) { throw new Exception("No data."); }
+            return resultValue;
         }
-
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="dataReader"></param>
+        /// <param name="entity"></param>
+        /// <returns></returns>
+        private static Dictionary<string, object> DataReaderToDictionary(IDataReader dataReader, __Entity entity)
+        {
+            Dictionary<string, object> columnValuePairs = new();
+            if (dataReader.Read())
+            {
+                foreach (__Field modelField in entity.Internals)
+                {
+                    columnValuePairs.Add(modelField.ColumnName, dataReader.GetValue(dataReader.GetOrdinal(modelField.ColumnName)));
+                }
+            }
+            return columnValuePairs;
+        }
 
         /// <summary>Fills a list.</summary>
         /// <param name="t">Type.</param>
