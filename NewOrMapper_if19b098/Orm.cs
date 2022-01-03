@@ -176,7 +176,6 @@ namespace NewOrMapper_if19b098
                     if(t._GetEntity().PrimaryKey.GetValue(i).Equals(pk)) { return i; }
                 }
             }
-
             return null;
         }
 
@@ -191,9 +190,11 @@ namespace NewOrMapper_if19b098
             __Entity ent = t._GetEntity();
             object rval = _SearchCache(t, ent.PrimaryKey.ToFieldType(columnValuePairs[ent.PrimaryKey.ColumnName], null), localCache);
 
+            bool foundInCache = true;
             if(rval == null)
             {
-                if(localCache == null) 
+                foundInCache = false;
+                if (localCache == null) 
                 { 
                     localCache = new List<object>(); 
                 }
@@ -205,17 +206,20 @@ namespace NewOrMapper_if19b098
                 i.SetValue(rval, i.ToFieldType(columnValuePairs[i.ColumnName], localCache));
             }
 
-            foreach(__Field i in ent.Externals)
+            if (!foundInCache)
             {
-                if(typeof(ILazy).IsAssignableFrom(i.Type))
+                foreach (__Field i in ent.Externals)
                 {
-                    i.SetValue(rval, Activator.CreateInstance(i.Type, rval, i.Member.Name));
+                    if (typeof(ILazy).IsAssignableFrom(i.Type))
+                    {
+                        i.SetValue(rval, Activator.CreateInstance(i.Type, rval, i.Member.Name));
+                    }
+                    else
+                    {
+                        i.SetValue(rval, i.Fill(Activator.CreateInstance(i.Type), rval, localCache));
+                    }
                 }
-                else
-                {
-                    i.SetValue(rval, i.Fill(Activator.CreateInstance(i.Type), rval, localCache));
-                }
-            }
+            }            
 
             return rval;
         }
@@ -227,6 +231,35 @@ namespace NewOrMapper_if19b098
         /// <param name="localCache">Local cache.</param>
         /// <returns>Object.</returns>
         internal static object _CreateObject(Type t, object primaryKey, ICollection<object> localCache)
+        {
+            object rval = _SearchCache(t, primaryKey, localCache);
+            __Entity modelEntity = t._GetEntity();
+
+            IDbCommand cmd = Connection.CreateCommand();
+
+            cmd.CommandText = t._GetEntity().GetSQL() + " WHERE " + t._GetEntity().PrimaryKey.ColumnName + " = :pk";
+
+            IDataParameter p = cmd.CreateParameter();
+            p.ParameterName = (":pk");
+            p.Value = primaryKey;
+            cmd.Parameters.Add(p);
+
+            IDataReader re = cmd.ExecuteReader();
+            Dictionary<string, object> columnValuePairs = DataReaderToDictionary(re, modelEntity);
+
+
+            re.Close();
+            cmd.Dispose();
+
+            if (Cache != null) { Cache.Put(rval); }
+
+            Connection.Close();
+            Connection.Open();
+            rval = _CreateObject(t, columnValuePairs, localCache);
+
+            return rval;
+        }
+        internal static object _CreateObjectOld(Type t, object primaryKey, ICollection<object> localCache)
         {
             object resultValue = _SearchCache(t, primaryKey, localCache);
 
@@ -250,12 +283,6 @@ namespace NewOrMapper_if19b098
             if (resultValue == null) { throw new Exception("No data."); }
             return resultValue;
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="dataReader"></param>
-        /// <param name="entity"></param>
-        /// <returns></returns>
         private static Dictionary<string, object> DataReaderToDictionary(IDataReader dataReader, __Entity entity)
         {
             Dictionary<string, object> columnValuePairs = new();
@@ -274,11 +301,12 @@ namespace NewOrMapper_if19b098
         /// <param name="list">List.</param>
         /// <param name="re">Reader.</param>
         /// <param name="localCache">Local cache.</param>
-        internal static void _FillList(Type t, object list, IDataReader re, ICollection<object> localCache = null)
+        internal static void _FillList(Type t, object list, List<Dictionary<string, object>> dict, ICollection<object> localCache = null)
         {
-            while(re.Read())
+            foreach(var dic in dict)
             {
-                list.GetType().GetMethod("Add").Invoke(list, new object[] { _CreateObject(t, re, localCache) });
+                list.GetType().GetMethod("Add").Invoke(list, new object[] { _CreateObject(t, dic, localCache) });
+
             }
         }
 
@@ -302,11 +330,24 @@ namespace NewOrMapper_if19b098
                 p.Value = i.Item2;
                 cmd.Parameters.Add(p);
             }
+            __Entity modelEntity = t._GetEntity();
 
-            IDataReader re = cmd.ExecuteReader();
-            _FillList(t, list, re, localCache);
-            re.Close();
-            re.Dispose();
+            IDataReader readerData = cmd.ExecuteReader();
+
+            List<Dictionary<string, object>> tempList = new();
+            Dictionary<string, object> columnValuePairs = null;
+
+            do
+            {
+                columnValuePairs = DataReaderToDictionary(readerData, modelEntity);
+                if(columnValuePairs.Count > 0)
+                tempList.Add(columnValuePairs);
+            }
+            while (columnValuePairs != null && columnValuePairs.Count > 0);
+            readerData.Close();
+
+            _FillList(t, list, tempList, localCache);
+            readerData.Dispose();
             cmd.Dispose();
         }
     }

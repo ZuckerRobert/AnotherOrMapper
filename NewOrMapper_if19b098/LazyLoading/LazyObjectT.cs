@@ -69,6 +69,7 @@ namespace NewOrMapper_if19b098.LazyLoading
             return lazy._Value;
         }
 
+        
 
         /// <summary>Implements an implicit operator for the Lazy class.</summary>
         /// <param name="lazy">Lazy object.</param>

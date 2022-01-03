@@ -81,5 +81,22 @@ namespace SampleApp
             Orm.Connection = new NpgsqlConnection(connectionString3);
             Orm.Connection.Open();
         }
+
+        public static IDbConnection Connection
+        {
+            get
+            {
+                if (connectionString3 == null)
+                    throw new NoNullAllowedException("Please fill the Database Connectionstring");
+                //Create new Connection for an Operation
+                var tmp = new NpgsqlConnection(connectionString3);
+                tmp.Open();
+                return tmp;
+            }
+            set
+            {
+                Connection = value;
+            }
+        }
     }
 }

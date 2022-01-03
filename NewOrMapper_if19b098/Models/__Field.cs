@@ -331,6 +331,7 @@ namespace NewOrMapper_if19b098.Models
 
                 foreach (object i in (IEnumerable)GetValue(obj))
                 {
+                    //TODO convert lazy obj to teacher
                     remoteField.SetValue(i, obj);
 
                     IDbCommand cmd = Orm.Connection.CreateCommand();
@@ -338,7 +339,7 @@ namespace NewOrMapper_if19b098.Models
                     IDataParameter p = cmd.CreateParameter();
                     p.ParameterName = ":fk";
                     p.Value = pk;
-                    cmd.Parameters.Add(p);
+                    cmd.Parameters.Add(p);                    
 
                     p = cmd.CreateParameter();
                     p.ParameterName = ":pk";
