@@ -13,11 +13,11 @@ namespace SampleApp
     {
 
         static string connectionString2 = "Host=localhost;Username=postgres;Password=admin;";
-        static string connectionString3 = $"Host=localhost;Username=postgres;Password=admin;Database=ORTest;Pooling=true";
+        static string connectionString3 = $"Host=localhost;Username=postgres;Password=admin;Database=newORTest;Pooling=true";
 
         static void Main(string[] args)
         {
-            string databaseName = "ORTest";
+            string databaseName = "newORTest";
             string userName = "postgres";
             string password = "admin";
             string connectionString1 = $"Host=localhost;Username={userName};Password={password};Database={databaseName};Pooling=true";
@@ -30,27 +30,31 @@ namespace SampleApp
             {
                 Orm.Connection = new NpgsqlConnection(connectionString1);
                 Orm.Connection.Open();
+                Console.WriteLine("Establish connection");
+
             }
             catch
             {
-                //erstellt datenbank
+                Console.WriteLine("Create Database " + databaseName);
                 try
                 {
                     Orm.Connection = new NpgsqlConnection(connectionString2);
                     cmd = Orm.Connection.CreateCommand();
                     cmd.CommandText = $"CREATE DATABASE \"{databaseName}\" WITH OWNER = \"{userName}\" ENCODING = 'UTF8' ";
                     Orm.Connection.Open();
+                    Console.WriteLine("Establish connection");
                     cmd.ExecuteNonQuery();
                     cmd.Dispose();
                 }
                 catch (Exception e)
                 {
                     Console.WriteLine(e);
-
+                    Console.WriteLine("error occured, deleting DB");
                     Orm.Connection = new NpgsqlConnection(connectionString2);
                     cmd = Orm.Connection.CreateCommand();
                     cmd.CommandText = $"DROP DATABASE [IF EXISTS] {databaseName}";
-                    Orm.Connection.Open();
+                    Orm.Connection.Close();
+                    Console.WriteLine("Droped Database");
                     cmd.ExecuteNonQuery();
                     cmd.Dispose();
                 }
