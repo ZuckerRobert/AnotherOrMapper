@@ -306,7 +306,6 @@ namespace NewOrMapper_if19b098
             foreach(var dic in dict)
             {
                 list.GetType().GetMethod("Add").Invoke(list, new object[] { _CreateObject(t, dic, localCache) });
-
             }
         }
 
