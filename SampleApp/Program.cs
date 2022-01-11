@@ -65,9 +65,7 @@ namespace SampleApp
 
             //ORMapping.Connection.Close();
             //ORMapping.Connection.Open();
-
             RefreshCon();
-
             ModifyObject.Show();
             WithFK.Show();
             WithFKList.Show();
